@@ -1,26 +1,28 @@
 /*
  * Calculates the hashtags that are commonly used with the hashtag #coronavirus
  */
-WITH hits AS (
-  SELECT data->>'id' AS id_tweets
-  FROM tweets_jsonb
-  WHERE (
-    COALESCE(data->'entities'->'hashtags','[]')
-    || COALESCE(data->'extended_tweet'->'entities'->'hashtags','[]')
-  ) @> '[{"text":"coronavirus"}]'
-)
 SELECT
-  h->>'text' AS tag,
-  COUNT(*)      AS count
-FROM hits
-JOIN tweets_jsonb t
-  ON t.data->>'id' = hits.id_tweets
-CROSS JOIN LATERAL
-  jsonb_array_elements(
-    COALESCE(t.data->'entities'->'hashtags','[]')
-    || COALESCE(t.data->'extended_tweet'->'entities'->'hashtags','[]')
-  ) AS h
-WHERE h->>'text' <> 'coronavirus'
-GROUP BY tag
-ORDER BY count DESC, tag
+  '#' || uniq.tag_text AS tag,
+  COUNT(*)             AS count
+FROM (
+  SELECT DISTINCT
+    t.data->>'id'     AS id_tweets,
+    jshtag->>'text'   AS tag_text
+  FROM tweets_jsonb AS t
+  CROSS JOIN LATERAL (
+    VALUES (
+      COALESCE(t.data->'entities'->'hashtags',    '[]'::jsonb)
+    || COALESCE(t.data->'extended_tweet'->'entities'->'hashtags','[]'::jsonb)
+    )
+  ) AS arr(hashtags)
+  CROSS JOIN LATERAL
+    jsonb_array_elements(arr.hashtags) AS elem(jshtag)
+  WHERE
+    arr.hashtags @> $$[{"text":"coronavirus"}]$$
+) AS uniq
+GROUP BY
+  uniq.tag_text
+ORDER BY
+  count DESC,
+  uniq.tag_text
 LIMIT 1000;

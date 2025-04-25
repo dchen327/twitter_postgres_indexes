@@ -1,7 +1,7 @@
 /*
  * Count the number of tweets that use #coronavirus
  */
-SELECT COUNT(DISTINCT data->>'id') AS cnt
+SELECT COUNT(DISTINCT data->>'id') AS count
 FROM tweets_jsonb
 WHERE
   (
